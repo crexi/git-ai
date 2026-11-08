@@ -1,0 +1,19 @@
+crexi/install.sh
+  s_53e2707bc89028::t_b4a33d06b066ab 80,107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "f8d23e5b708b8feccc4984e6114819d5cd29ab24",
+  "prompts": {},
+  "sessions": {
+    "s_53e2707bc89028": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04ac99b4-722d-4503-a234-548ed921d49e",
+        "model": "unknown"
+      },
+      "human_author": "Christopher Smith <cbsmith@crexi.com>"
+    }
+  }
+}
