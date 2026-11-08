@@ -1,0 +1,230 @@
+name: Crexi release
+
+# Builds git-ai from a ref of this fork (default: crexi/metrics-retention, which adds
+# configurable metrics retention) on native runners and publishes the binaries as a
+# GitHub release of this repo. No code signing, no packages, no telemetry keys baked in,
+# and OSS_BUILD is deliberately unset so auto-updates default off.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref of this repo to build
+        required: true
+        default: crexi/metrics-retention
+      tag:
+        description: Release tag to create (for example v1.7.6-crexi.1)
+        required: true
+      prerelease:
+        description: Mark the release as a pre-release
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: "1.93.0"
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact_name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      source_sha: ${{ steps.meta.outputs.source_sha }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            artifact_name: git-ai-linux-x64
+            use_docker: true
+            optional: false
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-musl
+            artifact_name: git-ai-linux-arm64
+            use_docker: true
+            optional: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: git-ai-windows-x64.exe
+            use_docker: false
+            optional: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: git-ai-macos-arm64
+            use_docker: false
+            optional: false
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            artifact_name: git-ai-macos-x64
+            use_docker: false
+            optional: true
+    steps:
+      - name: Checkout the requested ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Record version and source commit
+        id: meta
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build static musl binary in Docker (Linux)
+        if: matrix.use_docker == true
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            -e DEBIAN_FRONTEND=noninteractive \
+            ubuntu:22.04 \
+            bash -c "
+              apt-get update && \
+              apt-get install -y curl build-essential pkg-config musl-tools && \
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_TOOLCHAIN }} --target ${{ matrix.target }} && \
+              . \$HOME/.cargo/env && \
+              cargo build --release --target ${{ matrix.target }} && \
+              strip target/${{ matrix.target }}/release/git-ai
+            "
+
+      - name: Verify the Linux binary is static
+        if: matrix.use_docker == true
+        run: |
+          file target/${{ matrix.target }}/release/git-ai
+          if ldd target/${{ matrix.target }}/release/git-ai 2>&1 | grep -q 'not a dynamic executable\|statically linked'; then
+            echo "static musl binary"
+          else
+            echo "::error::binary is dynamically linked"; exit 1
+          fi
+
+      - name: Install Rust toolchain
+        if: matrix.use_docker == false
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        if: matrix.use_docker == false
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - name: Build release binary
+        if: matrix.use_docker == false
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-C strip=symbols"
+
+      - name: Stage artifact
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          ARTIFACT: ${{ matrix.artifact_name }}
+        run: |
+          mkdir -p release
+          case "$TARGET" in
+            *windows*) cp "target/$TARGET/release/git-ai.exe" "release/$ARTIFACT" ;;
+            *) cp "target/$TARGET/release/git-ai" "release/$ARTIFACT" && chmod +x "release/$ARTIFACT" ;;
+          esac
+          ls -la release
+
+      - name: Smoke test
+        if: matrix.os != 'ubuntu-22.04-arm'
+        shell: bash
+        env:
+          ARTIFACT: ${{ matrix.artifact_name }}
+        run: |
+          "./release/$ARTIFACT" --version
+          "./release/$ARTIFACT" config --help | grep -q session_event_retention_days
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: release/${{ matrix.artifact_name }}
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout default branch (installers)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Assemble release directory and checksums
+        run: |
+          mkdir -p release
+          find artifacts -type f -name 'git-ai-*' -exec cp {} release/ \;
+          for required in git-ai-linux-x64 git-ai-macos-arm64 git-ai-windows-x64.exe; do
+            [ -f "release/$required" ] || { echo "::error::required artifact $required missing"; exit 1; }
+          done
+          cp crexi/install.sh crexi/install.ps1 release/
+          chmod +x release/install.sh
+          cd release && sha256sum git-ai-* install.sh install.ps1 | sort > SHA256SUMS && cat SHA256SUMS
+
+      - name: Write release notes
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
+          REF: ${{ inputs.ref }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          ASSETS=$(find release -maxdepth 1 -type f -name 'git-ai-*' -printf '%f ' | sort)
+          cat > notes.md <<NOTES
+          Crexi build of git-ai $VERSION from $REPO@$SOURCE_SHA (ref \`$REF\`).
+
+          Adds \`metrics_retention_days\` and \`session_event_retention_days\` so the local metrics database stops growing for a year. Defaults unchanged; auto-updates default off; no telemetry keys baked in; binaries are unsigned.
+
+          Install or upgrade (macOS, Linux):
+
+              curl -fsSL https://github.com/$REPO/releases/download/$TAG/install.sh | bash
+
+          Windows (PowerShell):
+
+              irm https://github.com/$REPO/releases/download/$TAG/install.ps1 -OutFile install.ps1; .\install.ps1
+
+          Both set \`session_event_retention_days 7\` (override with \`GIT_AI_SESSION_EVENT_RETENTION_DAYS\` or \`-RetentionDays\`). Add \`--shrink\` / \`-Shrink\` to reclaim space already used. Details: \`crexi/README.md\` on the default branch.
+
+          Assets (sha256 in SHA256SUMS): $ASSETS
+          NOTES
+          cat notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          PRE=""; [ "$PRERELEASE" = "true" ] && PRE="--prerelease"
+          # shellcheck disable=SC2086
+          gh release create "$TAG" release/* \
+            --repo "${{ github.repository }}" \
+            --title "git-ai $VERSION (Crexi $TAG)" \
+            --notes-file notes.md $PRE
