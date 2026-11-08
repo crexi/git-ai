@@ -1,0 +1,28 @@
+src/commands/usage.rs
+  s_0e05d560b88375::t_30d102103ca44b 154-159
+src/commands/config.rs
+  s_0e05d560b88375::t_30d102103ca44b 129-134,170,224-225,422-429,583-588,906-925,1322-1335
+src/metrics/db.rs
+  s_0e05d560b88375::t_30d102103ca44b 902-903,907-908,931-947,964-968,970,978,982,985-990
+  s_0e05d560b88375::t_95e881aa5bb0f8 1618-1621,3173-3174,3195,3217,3239,3264
+src/config.rs
+  s_0e05d560b88375::t_30d102103ca44b 198-202,294-297,369-372,704-714,1289-1308,1340-1341,1377-1378,1392-1402,1896-1907,1954-1955,2224-2225,2376-2377
+tests/integration/config_cli_coverage.rs
+  s_0e05d560b88375::t_b1f410ac7e8f59 465-466
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "cc5c391022640a759819e9aa16cd6addb39294b6",
+  "prompts": {},
+  "sessions": {
+    "s_0e05d560b88375": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d91c454-fa0f-4149-9783-4eb4e19d0c45",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Christopher Smith <cbsmith@crexi.com>"
+    }
+  }
+}
