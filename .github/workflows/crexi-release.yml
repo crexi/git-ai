@@ -229,11 +229,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
           VERSION: ${{ needs.build.outputs.version }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           PRE=""; [ "$PRERELEASE" = "true" ] && PRE="--prerelease"
           # shellcheck disable=SC2086
+          # Tag the commit the binaries were built from, not the default branch.
           gh release create "$TAG" release/* \
+            --target "$SOURCE_SHA" \
             --repo "${{ github.repository }}" \
             --title "git-ai $VERSION (Crexi $TAG)" \
             --notes-file notes.md $PRE
