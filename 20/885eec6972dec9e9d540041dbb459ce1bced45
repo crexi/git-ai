@@ -1,0 +1,19 @@
+.github/workflows/crexi-release.yml
+  s_0e05d560b88375::t_8e411b7d19d27e 159-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "20885eec6972dec9e9d540041dbb459ce1bced45",
+  "prompts": {},
+  "sessions": {
+    "s_0e05d560b88375": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d91c454-fa0f-4149-9783-4eb4e19d0c45",
+        "model": "unknown"
+      },
+      "human_author": "Christopher Smith <cbsmith@crexi.com>"
+    }
+  }
+}
