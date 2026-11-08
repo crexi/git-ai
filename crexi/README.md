@@ -63,8 +63,8 @@ freed pages); use `--shrink` once if you want the space back immediately.
 ## Cutting a release
 
 Actions → "Crexi release" → Run workflow, with the ref to build (normally
-`crexi/metrics-retention`) and the tag to create (`v<upstream version>-crexi.<n>`, e.g.
-`v1.7.6-crexi.1`). The workflow builds Linux x64 (static musl), macOS arm64 and Windows x64 as
+`crexi/metrics-retention`) and the tag to create (`v<upstream version>-metrics-retention.<n>`,
+e.g. `v1.7.6-metrics-retention.1`). The workflow builds Linux x64 (static musl), macOS arm64 and Windows x64 as
 required targets, plus Linux arm64 and macOS x64 as optional ones, checks each binary answers
 `--version` and knows the new setting, and publishes the binaries, `SHA256SUMS`, and both
 installers as a release.
