@@ -21,9 +21,22 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 function Test-DaemonRunning([string]$Exe) { (& $Exe bg status 2>$null) -match '"daemon_running": true' }
+function Get-DaemonPid {
+    $f = Join-Path $HOME '.git-ai\internal\daemon\daemon.pid.json'
+    if (Test-Path -LiteralPath $f) { try { return (Get-Content -Raw $f | ConvertFrom-Json).pid } catch { } }
+    return $null
+}
+# For $Running=$false this also waits for the recorded daemon process to exit: the status
+# flips to not-running before the old process releases its lock, and a start in that
+# window silently fails.
 function Wait-Daemon([string]$Exe, [bool]$Running, [int]$Seconds) {
+    $daemonPid = if (-not $Running) { Get-DaemonPid } else { $null }
     for ($i = 0; $i -lt $Seconds; $i++) {
-        if ((Test-DaemonRunning $Exe) -eq $Running) { return $true }
+        $isRunning = Test-DaemonRunning $Exe
+        if ($Running -and $isRunning) { return $true }
+        if (-not $Running -and -not $isRunning) {
+            if (-not $daemonPid -or -not (Get-Process -Id $daemonPid -ErrorAction SilentlyContinue)) { Start-Sleep -Seconds 1; return $true }
+        }
         Start-Sleep -Seconds 1
     }
     return $false

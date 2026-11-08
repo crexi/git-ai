@@ -34,11 +34,18 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 command -v curl >/dev/null || die "curl is required"
 
 daemon_running() { "$1" bg status 2>/dev/null | grep -q '"daemon_running": true'; }
+daemon_pid() { grep -o '"pid": *[0-9]*' "$HOME/.git-ai/internal/daemon/daemon.pid.json" 2>/dev/null | grep -o '[0-9]*$'; }
 # wait_daemon <binary> running|stopped <seconds>
+# "stopped" also waits for the recorded daemon process to exit: the status flips to
+# not-running a good 100 ms before the old process releases its lock, and a start in
+# that window silently fails.
 wait_daemon() {
-  local i
+  local i pid
+  pid=$(daemon_pid)
   for i in $(seq 1 "$3"); do
-    if daemon_running "$1"; then [ "$2" = running ] && return 0; else [ "$2" = stopped ] && return 0; fi
+    if [ "$2" = running ]; then daemon_running "$1" && return 0
+    elif ! daemon_running "$1" && { [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; }; then sleep 1; return 0
+    fi
     sleep 1
   done
   return 1
@@ -104,7 +111,6 @@ if [ "$SHRINK" = 1 ]; then
   fi
 fi
 
-# stdin must not be the script pipe (curl | bash) or the spawned daemon fails to start
 "$BIN" bg start </dev/null >/dev/null 2>&1 || true
 if wait_daemon "$BIN" running 15; then say "Daemon running"
 else say "note: daemon not running yet; it starts automatically on the next git command"; fi
