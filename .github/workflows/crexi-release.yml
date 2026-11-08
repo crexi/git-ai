@@ -156,7 +156,10 @@ jobs:
           case "$TARGET" in *windows*) BIN=smoke/git-ai.exe ;; *) BIN=smoke/git-ai ;; esac
           cp "release/$ARTIFACT" "$BIN" && chmod +x "$BIN"
           "$BIN" --version
-          "$BIN" config --help 2>&1 | grep -q session_event_retention_days
+          # grep -q exits on the first match and git-ai panics on the next write to the
+          # closed pipe (exit 101), so capture the help text first and grep the file.
+          "$BIN" config --help > smoke/config-help.txt 2>&1
+          grep -q session_event_retention_days smoke/config-help.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
