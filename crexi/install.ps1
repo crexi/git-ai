@@ -20,6 +20,14 @@ param(
     [switch]$Shrink
 )
 $ErrorActionPreference = 'Stop'
+function Test-DaemonRunning([string]$Exe) { (& $Exe bg status 2>$null) -match '"daemon_running": true' }
+function Wait-Daemon([string]$Exe, [bool]$Running, [int]$Seconds) {
+    for ($i = 0; $i -lt $Seconds; $i++) {
+        if ((Test-DaemonRunning $Exe) -eq $Running) { return $true }
+        Start-Sleep -Seconds 1
+    }
+    return $false
+}
 $Repo = if ($env:GIT_AI_CREXI_REPO) { $env:GIT_AI_CREXI_REPO } else { 'crexi/git-ai' }
 $Asset = 'git-ai-windows-x64.exe'
 $Base = if ($Tag) { "https://github.com/$Repo/releases/download/$Tag" } else { "https://github.com/$Repo/releases/latest/download" }
@@ -46,7 +54,7 @@ try {
     if (-not $fresh) {
         Write-Host "Stopping the running daemon"
         & $Bin bg shutdown *> $null
-        Start-Sleep -Seconds 2
+        if (-not (Wait-Daemon $Bin $false 20)) { Write-Host "warning: daemon still running; continuing" }
         Copy-Item -Force -Path $Bin -Destination "$Bin.bak-$(Get-Date -Format yyyyMMddHHmmss)"
     }
 
@@ -77,6 +85,8 @@ try {
     }
 
     & $Bin bg start *> $null
+    if (Wait-Daemon $Bin $true 15) { Write-Host "Daemon running" }
+    else { Write-Host "note: daemon not running yet; it starts automatically on the next git command" }
     Write-Host "Installed $(& $Bin --version) at $Bin"
     Write-Host "session_event_retention_days = $(& $Bin config session_event_retention_days)"
 }

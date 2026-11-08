@@ -33,6 +33,17 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 command -v curl >/dev/null || die "curl is required"
 
+daemon_running() { "$1" bg status 2>/dev/null | grep -q '"daemon_running": true'; }
+# wait_daemon <binary> running|stopped <seconds>
+wait_daemon() {
+  local i
+  for i in $(seq 1 "$3"); do
+    if daemon_running "$1"; then [ "$2" = running ] && return 0; else [ "$2" = stopped ] && return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 case "$OS/$ARCH" in
@@ -66,6 +77,7 @@ if [ -x "$BIN" ]; then
   FRESH=0
   say "Stopping the running daemon ($("$BIN" --version 2>/dev/null || echo unknown))"
   "$BIN" bg shutdown >/dev/null 2>&1 || true
+  wait_daemon "$BIN" stopped 20 || say "warning: daemon still running; continuing"
   cp -p "$BIN" "$BIN.bak-$(date +%Y%m%d%H%M%S)"
 fi
 
@@ -92,6 +104,8 @@ if [ "$SHRINK" = 1 ]; then
 fi
 
 "$BIN" bg start >/dev/null 2>&1 || true
+if wait_daemon "$BIN" running 15; then say "Daemon running"
+else say "note: daemon not running yet; it starts automatically on the next git command"; fi
 say "Installed $("$BIN" --version) at $BIN"
 say "session_event_retention_days = $("$BIN" config session_event_retention_days)"
 if [ -f "$HOME/.git-ai/internal/metrics-db" ]; then say "metrics-db: $(du -h "$HOME/.git-ai/internal/metrics-db" | cut -f1)"; fi
