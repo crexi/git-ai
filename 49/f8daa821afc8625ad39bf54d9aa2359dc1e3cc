@@ -1,0 +1,21 @@
+crexi/install.ps1
+  s_c83aa8ffd4d2c5::t_dc7bc56abce37c 24-31,33,35-39
+crexi/install.sh
+  s_c83aa8ffd4d2c5::t_8bdf02bc8cf4de 37,39-41,43-44,46-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "49f8daa821afc8625ad39bf54d9aa2359dc1e3cc",
+  "prompts": {},
+  "sessions": {
+    "s_c83aa8ffd4d2c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_c83aa8ffd4d2c5",
+        "model": "unknown"
+      },
+      "human_author": "Christopher Smith <cbsmith@crexi.com>"
+    }
+  }
+}
