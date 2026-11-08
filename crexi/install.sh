@@ -64,8 +64,9 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 say "Downloading $ASSET from $REPO ${TAG:-(latest)}"
-curl -fsSL "$BASE/$ASSET" -o "$TMP/$ASSET"
-curl -fsSL "$BASE/SHA256SUMS" -o "$TMP/SHA256SUMS"
+fetch() { curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "$1" -o "$2"; }
+fetch "$BASE/$ASSET" "$TMP/$ASSET"
+fetch "$BASE/SHA256SUMS" "$TMP/SHA256SUMS"
 (
   cd "$TMP"
   if command -v sha256sum >/dev/null; then grep " $ASSET\$" SHA256SUMS | sha256sum -c - >/dev/null

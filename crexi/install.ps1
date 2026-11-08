@@ -41,8 +41,14 @@ New-Item -ItemType Directory -Path $Tmp | Out-Null
 
 try {
     Write-Host "Downloading $Asset from $Repo $(if ($Tag) { $Tag } else { '(latest)' })"
-    Invoke-WebRequest -Uri "$Base/$Asset" -OutFile (Join-Path $Tmp $Asset)
-    Invoke-WebRequest -Uri "$Base/SHA256SUMS" -OutFile (Join-Path $Tmp 'SHA256SUMS')
+    function Get-WithRetry([string]$Uri, [string]$OutFile) {
+        for ($attempt = 1; $attempt -le 5; $attempt++) {
+            try { Invoke-WebRequest -Uri $Uri -OutFile $OutFile; return }
+            catch { if ($attempt -eq 5) { throw }; Write-Host "download failed (attempt $attempt), retrying"; Start-Sleep -Seconds 3 }
+        }
+    }
+    Get-WithRetry "$Base/$Asset" (Join-Path $Tmp $Asset)
+    Get-WithRetry "$Base/SHA256SUMS" (Join-Path $Tmp 'SHA256SUMS')
 
     $line = Select-String -Path (Join-Path $Tmp 'SHA256SUMS') -Pattern " \*?$([regex]::Escape($Asset))$"
     if (-not $line) { throw "no checksum for $Asset" }
