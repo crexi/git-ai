@@ -77,7 +77,7 @@ FRESH=1
 if [ -x "$BIN" ]; then
   FRESH=0
   say "Stopping the running daemon ($("$BIN" --version 2>/dev/null || echo unknown))"
-  "$BIN" bg shutdown >/dev/null 2>&1 || true
+  "$BIN" bg shutdown </dev/null >/dev/null 2>&1 || true
   wait_daemon "$BIN" stopped 20 || say "warning: daemon still running; continuing"
   cp -p "$BIN" "$BIN.bak-$(date +%Y%m%d%H%M%S)"
 fi
@@ -104,7 +104,8 @@ if [ "$SHRINK" = 1 ]; then
   fi
 fi
 
-"$BIN" bg start >/dev/null 2>&1 || true
+# stdin must not be the script pipe (curl | bash) or the spawned daemon fails to start
+"$BIN" bg start </dev/null >/dev/null 2>&1 || true
 if wait_daemon "$BIN" running 15; then say "Daemon running"
 else say "note: daemon not running yet; it starts automatically on the next git command"; fi
 say "Installed $("$BIN" --version) at $BIN"
