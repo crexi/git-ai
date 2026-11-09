@@ -1,0 +1,21 @@
+src/metrics/db.rs
+  s_0e05d560b88375::t_e9313c158ff4ac 3325-3369
+tests/integration/config_cli_coverage.rs
+  s_0e05d560b88375::t_0a886e9aff343d 271-356,483-484,553-554
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "ec869365500265749498c6eeba384f07ef7d285f",
+  "prompts": {},
+  "sessions": {
+    "s_0e05d560b88375": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d91c454-fa0f-4149-9783-4eb4e19d0c45",
+        "model": "unknown"
+      },
+      "human_author": "Christopher Smith <cbsmith@crexi.com>"
+    }
+  }
+}
